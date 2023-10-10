@@ -1,0 +1,85 @@
+import csv
+import time
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import NoSuchElementException
+
+# Set up Chrome WebDriver
+chrome_options = Options()
+chrome_options.add_experimental_option("detach", True)
+driver = webdriver.Chrome(options=chrome_options)
+
+# URL of LinkedIn Job Listing
+url = "https://www.linkedin.com/jobs/view/3734529066"
+
+# Open LinkedIn Job Listing page
+driver.get(url)
+
+# Initialize CSV file for data storage
+csv_filename = "linkedin_jobs.csv"
+csv_file = open(csv_filename, "w", newline="", encoding="utf-8")
+csv_writer = csv.writer(csv_file)
+
+# Scrape job details
+while True:
+    try:
+        time.sleep(2)  # Sleep for 2 seconds to let the page load
+
+        # Scroll to the end of the page to load more content (LinkedIn uses infinite scrolling)
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+
+        # Extract job details with error handling
+        try:
+            job_name = soup.find("h1", class_="top-card-layout__title").text.strip()
+        except AttributeError:
+            job_name = "N/A"
+
+        try:
+            company_logo_url = soup.find("img", class_="artdeco-entity-image")["src"] if soup.find("img",
+                                                                                                   class_="artdeco-entity-image") else ""
+        except (AttributeError, KeyError):
+            company_logo_url = ""
+
+        try:
+            job_title = soup.find("div", class_="show-more-less-html__markup").text.strip()
+        except AttributeError:
+            job_title = "N/A"
+
+        try:
+            job_type = soup.find("span", class_="job-criteria__text").text.strip()
+        except AttributeError:
+            job_type = "N/A"
+
+        try:
+            location = soup.find("span", class_="job-criteria__text job-criteria__location").text.strip()
+        except AttributeError:
+            location = "N/A"
+
+        try:
+            description = soup.find("div", class_="show-more-less-html__markup").text.strip()
+        except AttributeError:
+            description = "N/A"
+
+        job_url = url
+
+        # Write each detail on a separate line with its title
+        csv_writer.writerow(["Job Name", job_name])
+        csv_writer.writerow(["Company Logo URL", company_logo_url])
+        csv_writer.writerow(["Job Title", job_title])
+        csv_writer.writerow(["Job Type", job_type])
+        csv_writer.writerow(["Location", location])
+        csv_writer.writerow(["Description", description])
+        csv_writer.writerow(["Job URL", job_url])
+
+        # Check if there is a "Show more" button and click it if present
+        show_more_button = driver.find_element_by_css_selector("button.show-more-less-html__button")
+        show_more_button.click()
+    except NoSuchElementException:
+        break  # No more "Show more" button, so we're done scraping
+
+# Close the CSV file and the WebDriver
+csv_file.close()
+driver.quit()
